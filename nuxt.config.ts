@@ -374,6 +374,10 @@ export default defineNuxtConfig({
     '/docs/3.x/guide/going-further/custom-routing': { redirect: '/docs/3.x/guide/recipes/custom-routing', prerender: false },
     '/docs/4.x/guide/going-further/custom-routing': { redirect: '/docs/4.x/guide/recipes/custom-routing', prerender: false },
     '/docs/5.x/guide/going-further/custom-routing': { redirect: '/docs/5.x/guide/recipes/custom-routing', prerender: false },
+    '/docs/api/components/teleport': { redirect: { to: '/docs/api/components/teleports', statusCode: 301 }, prerender: false },
+    '/docs/3.x/api/components/teleport': { redirect: { to: '/docs/3.x/api/components/teleports', statusCode: 301 }, prerender: false },
+    '/docs/4.x/api/components/teleport': { redirect: { to: '/docs/4.x/api/components/teleports', statusCode: 301 }, prerender: false },
+    '/docs/5.x/api/components/teleport': { redirect: { to: '/docs/5.x/api/components/teleports', statusCode: 301 }, prerender: false },
     // new directory structure
     '/docs/3.x/directory-structure/app/assets': { redirect: '/docs/3.x/directory-structure/assets', prerender: false },
     '/docs/3.x/directory-structure/app/components': { redirect: '/docs/3.x/directory-structure/components', prerender: false },
@@ -588,6 +592,9 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2026-01-14',
   nitro: {
+    // Bundle the HTML tokenizer so unused parser code and package files are omitted.
+    // Entries match by prefix, so `parse5` also covers `parse5-sax-parser`.
+    externals: { inline: ['parse5', 'entities'] },
     experimental: {
       // `pnpm nuxters:sync` (server/tasks/nuxters/sync.ts)
       tasks: true
