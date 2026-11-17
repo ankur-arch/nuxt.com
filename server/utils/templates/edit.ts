@@ -189,6 +189,8 @@ const DEV_STARTED = '/tmp/nuxt-com-dev-started'
 const DEV_PID = '/tmp/nuxt-com-dev.pid'
 const DEV_READY = '/tmp/nuxt-com-dev-ready'
 const WARMUP_PATH = '/tmp/nuxt-com-warmup.mjs'
+/** Set while a deploy builds the app: `nuxt dev` and a production build don't both fit in the sandbox's memory. */
+const DEPLOYING = '/tmp/nuxt-com-deploying'
 const BRIDGE_PATH = '/tmp/nuxt-com-preview.client.js'
 const BOOT_GUARD_PATH = '/tmp/nuxt-com-preview.js'
 
@@ -198,7 +200,9 @@ const BOOT_GUARD_PATH = '/tmp/nuxt-com-preview.js'
  */
 export async function startDevServer(sandbox: Sandbox) {
   // `mkdir` fails when the directory exists, so only the first of two concurrent callers starts it.
-  if ((await run(sandbox, `mkdir ${DEV_STARTED} 2>/dev/null`)).exitCode !== 0) return
+  const lock = await run(sandbox, `test -f ${DEPLOYING} && exit 3; mkdir ${DEV_STARTED} 2>/dev/null`)
+  if (lock.exitCode === 3) throw createError({ statusCode: 409, message: 'A deploy is building the app. Edit again once it finishes.' })
+  if (lock.exitCode !== 0) return
   try {
     await sandbox.writeFiles([
       { path: WARMUP_PATH, content: DEV_WARMUP_SCRIPT },
@@ -219,6 +223,21 @@ export async function startDevServer(sandbox: Sandbox) {
     await run(sandbox, `rmdir ${DEV_STARTED}`).catch(() => {})
     throw error
   }
+}
+
+/**
+ * Stops `nuxt dev` for a deploy, with its whole process tree, and keeps it from starting until `resumeDevServer`.
+ */
+export async function pauseDevServer(sandbox: Sandbox) {
+  await run(sandbox, `touch ${DEPLOYING}; test -d ${DEV_STARTED} || exit 0
+kill_tree() { for child in $(pgrep -P "$1"); do kill_tree "$child"; done; kill "$1" 2>/dev/null; }
+for i in $(seq 1 20); do test -f ${DEV_PID} && break; sleep 0.25; done
+test -f ${DEV_PID} && kill_tree "$(cat ${DEV_PID})"
+for i in $(seq 1 60); do test -d ${DEV_STARTED} || break; sleep 0.25; done`)
+}
+
+export async function resumeDevServer(sandbox: Sandbox) {
+  await run(sandbox, `rm -f ${DEPLOYING}`)
 }
 
 /** Resolves with the dev server URL once it has bundled the app, and fails as soon as `nuxt dev` exits. */
